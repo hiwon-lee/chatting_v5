@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+<title>Document</title>
+<link href="css/style.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM" crossorigin="anonymous"></script>
+<style>
+    body {
+        font-size:0.8rem;
+    }
+ #container {
+    width: 400px;
+    height: 400px;
+    border: 1px solid black;
+    background: ivory;
+}
+.friendContainer {
+    width:200px;
+    height:400px;
+    background:wheat;
+    border:1px solid black;
+}
+#friendContainer li {
+    border-bottom: 1px solid darkgray;
+}
+#setId {
+    height:2rem;
+}
+#chatView {
+    height:  83%;
+    overflow-y: scroll;
+}
+#chatForm {
+    height: 10%;
+    border-top: 1px solid black;
+    text-align: center;
+}
+#msg {
+    width: 80%;
+    height: 32px;
+    border-radius: 8px;
+}
+#send {
+    width: 16%;
+    height: 34px;
+    border-radius: 10px;
+    background: black;
+    color: white;
+}
+.myname {
+    font-size: 0.6rem;
+    background-color: none !important;
+}
+.msgLine {
+        margin: 15px;
+}
+.msgBox {
+    border: 1px solid rgb(80, 80, 80);
+    background: rgb(136, 197, 255);
+    padding: 2px 5px;
+    border-radius: 10px;
+}
+.me {
+    border: 1px solid rgb(80, 80, 80);
+    padding: 2px 5px;
+    border-radius: 10px;
+    background-color: rgb(255, 238, 0);
+} 
+</style>
+</head>
+<body style="display: flex;">
+    <div class="friendContainer">
+        <div style="border: 1px solid black; padding:0.2rem; text-align: center;">현재 접속중인 사용자</div>
+        <div id="friendContainer"></div>
+        <div style="border: 1px solid black; padding:0.2rem; text-align: center;">가장 최근에 채팅한 사용자</div>
+        <div id="lastUser"></div>
+
+    </div>
+    <div id="container">
+        <div id="setId" class="text-center p-1">
+            <input type="text" placeholder="이름 설정" id="myname">
+            <button onclick="connect()">등록</button>
+        </div>
+        <div id="chatView">
+ 
+        </div>
+        <form id="chatForm" onsubmit="return false">
+            <input type="text" id="msg">
+            <input type="submit" id="send" value="전송">
+        </form>
+    </div>
+    
+ 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+
+<script>
+    const socket = io();
+    const chatView = document.getElementById('chatView');
+    const chatForm = document.getElementById('chatForm');
+    let friendList = [];
+    let my_user_id;
+
+    chatForm.addEventListener('submit', function() {//form이 제출되면
+        let msg = $('#msg');//msg객체 
+        let user_name = my_user_id;
+
+        if (msg.val() == '' ) {//공백 시 취소
+            alert("접속 혹은 채팅 내용이 없습니다.")
+            return;
+        } else {
+            
+            socket.emit('SEND', msg.val(), user_name);//소켓에 메시지 내용 보내기
+            // console.log(user_name);
+            lastUser(user_name);
+            let msgLine = $('<div class="msgLine">');//틀
+            let nameBox = $('<div class="myname">'); //이름담는 공간
+            let msgBox = $('<div class="me">'); //나의 메시지 내용 담는 공간
+
+            nameBox.append(user_name);
+            msgBox.append(nameBox);
+            msgBox.append(msg.val());
+            msgBox.css('display', 'inline-block');
+            msgLine.css('text-align', 'right'); //메시지 박스 디자인
+            
+            msgLine.append(msgBox); 
+
+            $('#chatView').append(msgLine);//chatView에 메시
+            
+            msg.val(''); //메시지 창 공백으로
+            chatView.scrollTop = chatView.scrollHeight; 
+        }
+    });
+    socket.on('LISTINFO', function( user_id) {       
+         
+        
+
+        if(user_id) {
+            //friendList.push(user_id);
+            //let friendLi = $('<div>');
+            
+            //console.log(user_id);
+            let nameLi = []; //현재 접속중인 사용자 저장 공간
+            let strIdx = user_id.indexOf("\""); //user_id의 첫번째 큰따옴표를 담음 
+            let endIdx;
+            while (strIdx != -1) {
+            
+                endIdx = user_id.indexOf("\"", strIdx + 1); //user_id의 다음 큰따옴표 좌표를 담음
+                
+                nameLi.push(user_id.substring(strIdx+1, endIdx));
+                $('#friendContainer').html(nameLi);
+                strIdx = user_id.indexOf("\"", endIdx + 1);
+        
+            }
+            //console.log(nameLi);
+            $('#friendContainer').html('');
+            nameLi.forEach(function(item, idx) {
+                
+                $('#friendContainer').append(`
+                    <div> ${idx+1}. ${item}</div>
+                `);
+            });
+        } else {
+            alert("이미 존재하는 이름입니다. 다른 닉네임으로 설정해주세요.")
+            $('#myname').val('');
+        } 
+    });
+
+    socket.on('ENTERINFO', function( user_id, isEnter) {  
+        if(isEnter) {
+            $('#chatView').append(`<div class="text-center">
+                ${user_id} 님이 방에 들어왔습니다.
+            </div>`);
+        }else {
+            console.log(user_id);
+            $('#chatView').append(`<div class="text-center">
+                ${user_id} 님이 방을 나갔습니다.
+            </div>`);
+        }
+        
+    });
+    
+    socket.on('SEND', function(msg, user_name) { //SEND메시지 받을 때 동작
+        //console.log(user_name);
+        lastUser(user_name);
+        let msgLine = $('<div class="msgLine">');
+        let nameBox = $('<div class="myname">'); //이름담는 공간
+        let msgBox = $('<div class="msgBox">'); //상대 메시지
+          
+        nameBox.append(user_name);
+        msgBox.append(nameBox);
+        msgBox.append(msg);
+        msgBox.css('display', 'inline-block');
+ 
+        msgLine.append(msgBox);
+
+        $('#chatView').append(msgLine); //상대메시지 chatView에 추가
+ 
+        chatView.scrollTop = chatView.scrollHeight;
+    });
+
+    function connect() {
+         my_user_id = $.trim($("#myname").val());
+		if(!my_user_id) { 
+			alert("접속자명을 입력해 주세요");
+			return false;
+		}
+        // $('#chatView').append(`
+        //         ${my_user_id} 님이 접속하였습니다.
+        // `);
+
+        $('#setId').html(`
+                환영합니다
+                ${my_user_id} 님!
+            `);
+        //채팅하는 사람 리스트 만들기
+        socket.emit('USER_LIST',my_user_id); 
+      
+    }
+
+    function lastUser(user_name) {
+        $('#lastUser').html(`
+        ${user_name}님이 마지막으로 채팅하였습니다.
+        `)
+    }
+</script>
+</body>
+</html>
